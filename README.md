@@ -63,7 +63,7 @@ Select any **thread or channel**, click **“Generate Notes”**, and AI generat
 
 ### 1. Clone the Repo
 ```bash
-git clone https://github.com/dhruvsahu007/SlackAiCompanionNew.git
+git clone https://github.com/dhruvsahu007/slackai.git
 cd SlackAiCompanionNew
 ```
 ### 2. Install Dependencies
