@@ -230,7 +230,7 @@ export function Sidebar({
       <div className="p-3 border-t border-purple-800">
         <div className="flex items-center space-x-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.avatar} />
+            <AvatarImage src={user?.avatar || undefined} />
             <AvatarFallback className="bg-slate-600 text-white">
               {user?.displayName?.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -243,9 +243,17 @@ export function Sidebar({
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-slate-300 hover:text-white"
-            onClick={() => logoutMutation.mutate()}
+            onClick={() => setIsProfileModalOpen(true)}
           >
             <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-slate-300 hover:text-white"
+            onClick={() => logoutMutation.mutate()}
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -299,6 +307,94 @@ export function Sidebar({
                 <>Create Channel</>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Profile/Settings Modal */}
+      <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center space-x-2">
+              <UserIcon className="h-5 w-5" />
+              <span>User Profile & Settings</span>
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Manage your profile and account settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Profile Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-white">Profile Information</h3>
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={user?.avatar || undefined} />
+                  <AvatarFallback className="bg-slate-600 text-white text-lg">
+                    {user?.displayName?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <p className="text-white font-medium">{user?.displayName}</p>
+                  <p className="text-slate-400 text-sm">@{user?.username}</p>
+                  <p className="text-slate-400 text-sm">{user?.email}</p>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-slate-700" />
+
+            {/* Status Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-white">Status</h3>
+              <div className="flex items-center space-x-2">
+                <Circle className={`h-3 w-3 fill-current ${
+                  user?.status === 'available' ? 'text-green-400' :
+                  user?.status === 'busy' ? 'text-red-400' :
+                  user?.status === 'away' ? 'text-yellow-400' :
+                  'text-gray-400'
+                }`} />
+                <span className="text-slate-300 capitalize">{user?.status}</span>
+              </div>
+              {user?.title && (
+                <p className="text-slate-400 text-sm">{user.title}</p>
+              )}
+            </div>
+
+            <Separator className="bg-slate-700" />
+
+            {/* Account Actions */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-white">Account</h3>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-slate-700 text-slate-300 hover:text-white"
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    // TODO: Add edit profile functionality
+                    toast({
+                      title: "Coming Soon",
+                      description: "Profile editing will be available in a future update.",
+                    });
+                  }}
+                >
+                  <UserIcon className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    logoutMutation.mutate();
+                  }}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

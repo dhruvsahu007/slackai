@@ -100,12 +100,18 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
+      console.log("[Messages] Raw request body:", req.body);
+      
       const messageData = insertMessageSchema.parse({
         ...req.body,
         authorId: req.user!.id
       });
+      
+      console.log("[Messages] Parsed message data:", messageData);
 
       const message = await storage.createMessage(messageData);
+      
+      console.log("[Messages] Created message:", message);
       
       // Analyze tone in background
       if (messageData.content) {
@@ -121,6 +127,7 @@ export function registerRoutes(app: Express): Server {
 
       res.status(201).json(message);
     } catch (error) {
+      console.error("[Messages] Error creating message:", error);
       res.status(400).json({ message: "Invalid message data" });
     }
   });
@@ -142,9 +149,14 @@ export function registerRoutes(app: Express): Server {
     
     try {
       const otherUserId = parseInt(req.params.userId);
+      console.log(`[DirectMessages] Fetching DMs between user ${req.user!.id} and user ${otherUserId}`);
+      
       const messages = await storage.getDirectMessages(req.user!.id, otherUserId);
+      console.log(`[DirectMessages] Found ${messages.length} messages:`, messages);
+      
       res.json(messages);
     } catch (error) {
+      console.error("[DirectMessages] Error fetching direct messages:", error);
       res.status(500).json({ message: "Failed to fetch direct messages" });
     }
   });

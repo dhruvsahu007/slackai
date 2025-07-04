@@ -1,16 +1,18 @@
-import { db } from "./db";
-import { users, channels, channelMembers, messages, aiSuggestions, meetingNotes } from "@shared/schema";
+// Clear only messages (DMs and channel messages) but keep users and channels
+import { db } from "./server/db";
+import { messages, aiSuggestions, meetingNotes } from "./shared/schema";
 
-async function clear() {
+async function clearMessages() {
+  console.log('🧹 Clearing all messages from the database...\n');
+
   try {
-    console.log('🧹 Clearing all messages from the database...\n');
-
     // First, show current message count
     const currentMessages = await db.select().from(messages);
     console.log(`📊 Current message count: ${currentMessages.length}`);
     
     if (currentMessages.length === 0) {
       console.log('✅ No messages to clear!');
+      process.exit(0);
       return;
     }
 
@@ -21,17 +23,23 @@ async function clear() {
     console.log(`📩 Direct Messages: ${dmMessages.length}`);
     console.log(`📢 Channel Messages: ${channelMessages.length}\n`);
 
-    console.log('🗑️  Clearing messages only (keeping users and channels)...\n');
+    console.log('⚠️  WARNING: This will permanently delete ALL messages!');
+    console.log('   - All direct messages between users');
+    console.log('   - All channel messages');
+    console.log('   - All AI suggestions and meeting notes');
+    console.log('   - Users and channels will be KEPT\n');
 
-    // Delete in order of dependencies (messages reference other tables)
+    // Delete AI suggestions first (foreign key constraint)
     console.log('🗑️  Clearing AI suggestions...');
     await db.delete(aiSuggestions);
     console.log(`✅ Cleared AI suggestions`);
 
+    // Delete meeting notes
     console.log('🗑️  Clearing meeting notes...');
     await db.delete(meetingNotes);
     console.log(`✅ Cleared meeting notes`);
 
+    // Delete all messages
     console.log('🗑️  Clearing all messages...');
     await db.delete(messages);
     console.log(`✅ Cleared all messages`);
@@ -57,8 +65,10 @@ async function clear() {
     }
 
   } catch (error) {
-    console.error("❌ Error clearing messages:", error);
+    console.error('❌ Error clearing messages:', error);
   }
+
+  process.exit(0);
 }
 
-clear(); 
+clearMessages();

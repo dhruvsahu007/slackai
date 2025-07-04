@@ -29,14 +29,25 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "dev-session-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      secure: isProduction, // Only use secure cookies in production
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: isProduction ? 'strict' : 'lax',
+    },
   };
 
-  app.set("trust proxy", 1);
+  if (isProduction) {
+    app.set("trust proxy", 1);
+  }
+  
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -59,24 +70,74 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const existingUser = await storage.getUserByUsername(req.body.username);
-    if (existingUser) {
-      return res.status(400).send("Username already exists");
+    try {
+      // Validate required fields
+      const { username, email, password, displayName } = req.body;
+      if (!username || !email || !password || !displayName) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check if username exists
+      const existingUserByUsername = await storage.getUserByUsername(username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Check if email exists
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+
+      // Validate password length
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+
+      const user = await storage.createUser({
+        ...req.body,
+        password: await hashPassword(req.body.password),
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Internal server error during registration" });
     }
-
-    const user = await storage.createUser({
-      ...req.body,
-      password: await hashPassword(req.body.password),
-    });
-
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(user);
-    });
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  app.post("/api/login", async (req, res, next) => {
+    try {
+      // Validate request body
+      if (!req.body.username || !req.body.password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
+      passport.authenticate("local", (err: any, user: any, info: any) => {
+        if (err) {
+          console.error("Login authentication error:", err);
+          return res.status(500).json({ message: "Internal server error during login" });
+        }
+        
+        if (!user) {
+          return res.status(401).json({ message: "Invalid username or password" });
+        }
+
+        req.login(user, (loginErr: any) => {
+          if (loginErr) {
+            console.error("Login session error:", loginErr);
+            return res.status(500).json({ message: "Error creating session" });
+          }
+          res.status(200).json(user);
+        });
+      })(req, res, next);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Internal server error during login" });
+    }
   });
 
   app.post("/api/logout", (req, res, next) => {

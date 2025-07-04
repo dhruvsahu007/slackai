@@ -140,9 +140,16 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
   // AI reply suggestion mutation
   const suggestReplyMutation = useMutation({
     mutationFn: async (messageId: number) => {
+      console.log("[Client] Starting suggest reply mutation for messageId:", messageId);
+      
       // Get the message and its context
       const message = messages.find(m => m.id === messageId);
-      if (!message) throw new Error("Message not found");
+      if (!message) {
+        console.error("[Client] Message not found for ID:", messageId);
+        throw new Error("Message not found");
+      }
+      
+      console.log("[Client] Found message:", { id: message.id, content: message.content.substring(0, 100) + "..." });
       
       // Get last 5 messages before this one for context
       const contextMessages = messages
@@ -155,21 +162,25 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
         ? (channel.description ?? "No channel description") 
         : "Direct message conversation";
 
-      console.log("[Client] Sending suggest reply request:", {
-        messageContent: message.content,
-        threadContextLength: contextMessages.length,
-        channelContext
-      });
-
-      const response = await apiRequest("POST", "/api/ai/suggest-reply", {
+      const requestData = {
         messageContent: message.content,
         threadContext: contextMessages,
         orgContext: channelContext,
         generateMultiple: true // Request multiple suggestions
+      };
+
+      console.log("[Client] Sending suggest reply request:", {
+        messageContent: message.content.substring(0, 50) + "...",
+        threadContextLength: contextMessages.length,
+        channelContext,
+        requestDataKeys: Object.keys(requestData)
       });
+
+      const response = await apiRequest("POST", "/api/ai/suggest-reply", requestData);
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("[Client] API response not ok:", { status: response.status, errorData });
         throw new Error(errorData.details || errorData.message || "Failed to generate reply");
       }
 
@@ -183,11 +194,15 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
     },
     onError: (error) => {
       console.error("[Client] Reply generation error:", error);
+      console.error("[Client] Error stack:", error instanceof Error ? error.stack : "No stack trace");
       toast({
         title: "Failed to generate reply",
         description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive"
       });
+    },
+    onSuccess: (data) => {
+      console.log("[Client] Suggest reply mutation successful:", data);
     }
   });
 
@@ -205,12 +220,20 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
       return response.json();
     },
     onSuccess: () => {
+      // Clear AI suggestions since we've sent a reply
+      suggestReplyMutation.reset();
+      
       // Refresh messages
       if (selectedChannel) {
         queryClient.invalidateQueries({
           queryKey: ["/api/channels", selectedChannel, "messages"]
         });
+      } else if (selectedDmUser) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/direct-messages", selectedDmUser]
+        });
       }
+      
       toast({
         title: "Reply sent",
         description: "Your reply has been sent successfully",
@@ -239,6 +262,17 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
   });
 
   const handleSuggestReply = (messageId: number) => {
+    console.log("[Client] Suggest reply clicked for message:", messageId);
+    console.log("[Client] Mutation pending state:", suggestReplyMutation.isPending);
+    console.log("[Client] Mutation error:", suggestReplyMutation.error);
+    console.log("[Client] Messages available:", messages.length);
+    console.log("[Client] Selected channel:", selectedChannel);
+    console.log("[Client] Selected DM user:", selectedDmUser);
+    
+    // Find the specific message
+    const message = messages.find(m => m.id === messageId);
+    console.log("[Client] Found message:", message ? { id: message.id, content: message.content.substring(0, 50) + "..." } : "Not found");
+    
     suggestReplyMutation.mutate(messageId);
   };
 
@@ -258,7 +292,7 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
     });
   };
 
-  const renderToneAnalysis = (analysis: any) => {
+  const renderToneAnalysis = (analysis: any): ReactNode => {
     if (!analysis) return null;
 
     return (
@@ -303,7 +337,7 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
             <p className="text-slate-300 mb-2">{message.content}</p>
             
             {/* AI Analysis */}
-            {message.aiAnalysis && renderToneAnalysis(message.aiAnalysis)}
+            {message.aiAnalysis && renderToneAnalysis(message.aiAnalysis as any)}
             
             {/* Thread Replies */}
             {message.replies && message.replies.length > 0 && !isReply && (
@@ -330,7 +364,10 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleSuggestReply(message.id)}
+                onClick={() => {
+                  console.log("[Client] SUGGEST REPLY BUTTON CLICKED!");
+                  handleSuggestReply(message.id);
+                }}
                 className="text-xs text-slate-400 hover:text-white h-auto p-1"
                 disabled={suggestReplyMutation.isPending}
               >
@@ -537,6 +574,9 @@ export function ChatArea({ selectedChannel, selectedDmUser }: ChatAreaProps) {
         channelId={selectedChannel}
         recipientId={selectedDmUser}
         onMessageSent={(message) => {
+          // Clear AI suggestions when any message is sent
+          suggestReplyMutation.reset();
+          
           if (selectedChannel) {
             broadcastMessage(selectedChannel, message);
           }

@@ -5,7 +5,7 @@ import {
   type MeetingNotes, type InsertMeetingNotes, type ChannelMember
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc, not } from "drizzle-orm";
+import { eq, and, or, desc, asc, not, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -194,7 +194,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDirectMessages(userId1: number, userId2: number, limit = 50): Promise<(Message & { author: User })[]> {
-    return await db
+    console.log(`[Storage] Getting DMs between user ${userId1} and user ${userId2}`);
+    
+    const result = await db
       .select({
         id: messages.id,
         content: messages.content,
@@ -211,7 +213,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(messages.authorId, users.id))
       .where(
         and(
-          eq(messages.channelId, null),
+          isNull(messages.channelId),
           or(
             and(eq(messages.authorId, userId1), eq(messages.recipientId, userId2)),
             and(eq(messages.authorId, userId2), eq(messages.recipientId, userId1))
@@ -220,6 +222,9 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(asc(messages.createdAt))
       .limit(limit);
+      
+    console.log(`[Storage] DM query returned ${result.length} messages:`, result);
+    return result;
   }
 
   async createMessage(message: InsertMessage): Promise<Message & { author: User }> {

@@ -7,22 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Brain, MessageCircle, Users, Zap, ArrowLeft } from "lucide-react";
-
-const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-});
-
-const registerSchema = insertUserSchema.extend({
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+import { loginSchema, registerSchema } from "@/lib/validations";
 
 type LoginData = z.infer<typeof loginSchema>;
 type RegisterData = z.infer<typeof registerSchema>;
@@ -57,7 +45,9 @@ export default function AuthPage() {
   };
 
   const onRegister = (data: RegisterData) => {
+    console.log('[AuthPage] Registration form submitted with:', data);
     const { confirmPassword, ...registerData } = data;
+    console.log('[AuthPage] Sending to mutation:', registerData);
     registerMutation.mutate(registerData);
   };
 
@@ -191,6 +181,23 @@ export default function AuthPage() {
                       />
                       <FormField
                         control={registerForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-300">Username</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                className="bg-slate-700 border-slate-600 text-white h-12"
+                                placeholder="Choose a username"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
                         name="email"
                         render={({ field }) => (
                           <FormItem>
@@ -218,7 +225,25 @@ export default function AuthPage() {
                                 {...field} 
                                 type="password"
                                 className="bg-slate-700 border-slate-600 text-white h-12"
-                                placeholder="Create a strong password"
+                                placeholder="Create a strong password (min 6 characters)"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-300">Confirm Password</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="password"
+                                className="bg-slate-700 border-slate-600 text-white h-12"
+                                placeholder="Confirm your password"
                               />
                             </FormControl>
                             <FormMessage />

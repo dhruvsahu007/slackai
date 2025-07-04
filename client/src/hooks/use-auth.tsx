@@ -54,11 +54,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData([API_ENDPOINTS.USER], user);
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${user.displayName}!`,
+      });
     },
     onError: (error: Error) => {
+      console.error("Login error:", error);
+      const errorMessage = error.message.includes(':') 
+        ? error.message.split(':').slice(1).join(':').trim()
+        : error.message;
       toast({
         title: "Login failed",
-        description: error.message,
+        description: errorMessage || "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     },
@@ -66,16 +74,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: InsertUser) => {
+      console.log('[Auth] Attempting registration with:', credentials);
       const res = await apiRequest("POST", API_ENDPOINTS.REGISTER, credentials);
-      return await res.json();
+      const result = await res.json();
+      console.log('[Auth] Registration successful:', result);
+      return result;
     },
     onSuccess: (user: SelectUser) => {
+      console.log('[Auth] Registration onSuccess called with:', user);
       queryClient.setQueryData([API_ENDPOINTS.USER], user);
+      toast({
+        title: "Registration successful",
+      });
     },
     onError: (error: Error) => {
+      console.error("[Auth] Registration error:", error);
+      const errorMessage = error.message.includes(':') 
+        ? error.message.split(':').slice(1).join(':').trim()
+        : error.message;
       toast({
         title: "Registration failed",
-        description: error.message,
         variant: "destructive",
       });
     },
@@ -91,7 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onError: (error: Error) => {
       toast({
         title: "Logout failed",
-        description: error.message,
         variant: "destructive",
       });
     },
